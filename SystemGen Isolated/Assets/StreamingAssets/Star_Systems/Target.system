@@ -1,0 +1,81 @@
+System Name = Target
+Stars = 2
+Planets = 1
+SystemAge =  4.571 
+
+STAR_1 {
+	Name = Target-a
+	Mass = 1 
+	ParentBody = Barycentre
+	RotationRate = 13.3 
+	Inclination = 0
+	Temperature =
+	Diameter = 
+	Luminosity =
+	ActivityIndex = 
+	ORBIT {
+		SMA = 0
+		Eccentricity = 0
+		Longitude = 0
+		Inclination = 0
+		PeriArgument = 0
+	}
+}
+
+STAR_2 {
+	Name = Target-b
+	Mass = 0.4 
+	ParentBody = Barycentre
+	RotationRate = 13.3 
+	Inclination = 0
+	Temperature =
+	Diameter = 
+	Luminosity =
+	ActivityIndex = 
+	ORBIT {
+		SMA = 0
+		Eccentricity = 0
+		Longitude = 0
+		Inclination = 0
+		PeriArgument = 0
+	}
+}
+
+STAR_3 {
+	Name = Target-c
+	Mass = 0.4 
+	ParentBody = Barycentre
+	RotationRate = 13.3 
+	Inclination = 0
+	Temperature =
+	Diameter = 
+	Luminosity =
+	ActivityIndex = 
+	ORBIT {
+		SMA = 0
+		Eccentricity = 0
+		Longitude = 0
+		Inclination = 0
+		PeriArgument = 0
+	}
+}
+
+BODY_1 {
+	Name = Target-a
+	Mass = 1 
+	ParentBody = Barycentre
+	RotationRate = 13.3 
+
+}
+
+BODY_2 {
+	Name = Target-aa
+	Mass = 0.0121
+	ParentBody = Barycentre
+	RotationRate = 13.3 
+
+}
+
+BELT_1 {
+
+}
