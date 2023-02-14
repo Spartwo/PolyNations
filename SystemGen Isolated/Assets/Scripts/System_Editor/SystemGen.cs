@@ -9,19 +9,32 @@ using System.Linq;
 public class SystemGen : MonoBehaviour
 {
     //declare prefab bodies to instantiate
-    public GameObject AsteroidPrefab;
-    public GameObject CometPrefab;
-    public GameObject RingPrefab;
-    public GameObject BodyPrefab;
-    public GameObject StarPrefab;
+    [SerializeField]  GameObject AsteroidPrefab;
+    [SerializeField]  GameObject CometPrefab;
+    [SerializeField]  GameObject RingPrefab;
+    [SerializeField]  GameObject BodyPrefab;
+    [SerializeField]  GameObject UnaryPrefab;
+    [SerializeField]  GameObject BinaryPrefab;
+    [SerializeField]  GameObject TrinayPrefab;
     //declare the animation curve for star mass generation
     public AnimationCurve StellarMassProbabilityCurve;
     //declare seed input from UI and
-    protected string SeedInput;
+    private string SeedInput;
     protected string SystemFileName;
 
     //declare system age as 0 and work from thhre
-    public float SystemAge = 0;
+    public float SystemAge;
+    protected float[] StarLifespans;
+    private string[] StarDataArray;
+    private string[] StarDataAgedArray;
+    private string[] StarOrbitArray;
+
+    //viable planetary variables
+    
+    int BodyCount;
+    private List<float> OrbitalPositions;
+    private List<string>  BodyDataArray;
+    private List<string>  BodyOrbitArray;
     
     //system loaddata
     protected List<string> SystemDataArray;
@@ -49,43 +62,87 @@ public class SystemGen : MonoBehaviour
     }
 
     public void LoadSystemFile()
-    {   
+    {       
+        StartCoroutine(LoadSystemCoroutine());
+    }
+
+    IEnumerator LoadSystemCoroutine()
+    {
+        GameObject Focus = GameObject.Find("Camera_Focus");
+        //reset camera parentage
+        Focus.GetComponent<CameraMovement>().Parent = this.transform;
+        while(Focus.transform.parent != this.transform)
+        {
+            Debug.Log("No camera parent set yet");
+            yield return null;
+        }
+
+        //delete all previous bodies
+        GameObject[] DeleteBodies =  GameObject.FindGameObjectsWithTag("Root_Body");
+ 
+        for(var i = 0 ; i < DeleteBodies.Length ; i ++) 
+        {
+            Destroy(DeleteBodies[i]);
+        }
+        //clear any previous data
+        SystemDataArray = new List<string>();
+
         string SystemName = GameObject.Find("Seed_Input").GetComponent<TMP_InputField>().text;
         //create the system file in the extant directory from Start()
+        Debug.Log("System Name" + SystemName);
         SystemFileName = Application.streamingAssetsPath 
             + "/Star_Systems/" 
-            + (GameObject.Find("Seed_Input").GetComponent<TMP_InputField>().text) 
+            + SystemName 
             + ".system";
         
         //read all save data to a list
         SystemDataArray = File.ReadAllLines(SystemFileName).ToList();
+        //get star system age from the file
+        SystemAge = float.Parse(ReturnFileValue(3));
 
-        //for each Star
-        for (int i = 0; i < int.Parse(ReturnFileValue(1)) ; i++) // or count if it is a list
+        //declare the object input for future use
+        GameObject obj;
+        yield return new WaitForEndOfFrame();
+        //instantiate the correct stellar arrangement
+        switch (int.Parse(ReturnFileValue(1)))
         {
-            //Instantiate Stars and pass their unique ID and the system file to their script
-            GameObject obj = Instantiate(StarPrefab);
-            obj.transform.SetParent(this.gameObject.transform, false);
-            //set the starmanager unique identifier
-            obj.GetComponent<StarManager>().StarSearchTerm = "STAR_" + (i+1);
-            //set the starmanager input filename
-            obj.GetComponent<StarManager>().SystemFileName = SystemName;
+            case 1:
+                Debug.Log("Unary System");
+                obj = Instantiate(UnaryPrefab);
+                obj.transform.SetParent(this.gameObject.transform, false);
+                obj.name = "UNARY_BARYCENTRE";
+                break;
+            case 2:
+                Debug.Log("Binary System");
+                obj = Instantiate(BinaryPrefab);
+                obj.transform.SetParent(this.gameObject.transform, false);
+                obj.name = "BINARY_BARYCENTRE";
+                break;
+            case 3:
+                Debug.Log("Trinary System");
+                obj = Instantiate(TrinayPrefab);
+                obj.transform.SetParent(this.gameObject.transform, false);
+                obj.name = "TRINARY_BARYCENTRE";
+                break;
+            default:
+                Debug.Log("Rogue Planet");
+                break;
         }
 
         //for each planet
         for (int i = 0; i < int.Parse(ReturnFileValue(2)) ; i++) // or count if it is a list
         {
-         /*   //Instantiate Stars and pass their unique ID and the system file to their script
-            GameObject obj = Instantiate(BodyPrefab);
+            //Instantiate bodies and pass their unique ID and the system file to their script
+            obj = Instantiate(BodyPrefab);
             obj.transform.SetParent(this.gameObject.transform, false);
             //set the starmanager unique identifier
             obj.GetComponent<BodyManager>().BodySearchTerm = "BODY_" + (i+1);
             //set the starmanager input filename
-            obj.GetComponent<BodyManager>().SystemFileName = SystemName;*/
+            obj.GetComponent<BodyManager>().SystemFileName = SystemName;
         }
-
-       // GameObject.Find("Camera_Focus").GetComponent<CameraMovement>().UpdateBodyList();
-        
+    
+        //once generated, call the camera to update its list of objects
+        Focus.GetComponent<CameraMovement>().UpdateBodyList();
     }
 
     //return value from a certain line of systemdata
@@ -112,7 +169,6 @@ public class SystemGen : MonoBehaviour
     }
     public void GenerateSystemFile()
     {
-        string SeedInput;
         SeedInput = GameObject.Find("Seed_Input").GetComponent<TMP_InputField>().text;
         //generate system seed
         if (SeedInput == "") 
@@ -127,11 +183,16 @@ public class SystemGen : MonoBehaviour
             + "/Star_Systems/" 
             + SeedInput 
             + ".system";
-        //overwrite values as new seed
-        File.WriteAllText(SystemFileName, "System Name = " + SeedInput + "\n");
         
         //set system seed to the converted value
         Random.InitState(UsableSeed); 
+
+        //initialise the data arrays and reset the values
+        StarDataArray = new string[3];
+        StarDataAgedArray = new string[3];
+        StarOrbitArray = new string[3];
+        BodyCount = 0;
+
 
         int StarDictator = Random.Range(1, 1000);
         int StarCount;
@@ -140,53 +201,117 @@ public class SystemGen : MonoBehaviour
             StarCount = 1;
             //set single star distance at centre
             float ABDistance = 0;
-            if (StarDictator > 180) {
+            
+            StarOrbitArray[0] = 
+              "\n\t\tSMA = " + 0
+            + "\n\t\tEccentricity = " + 0
+            + "\n\t\tLongitude = " + 0
+            + "\n\t\tInclination = " + 0
+            + "\n\t\tPeriArgument = " + 0;
+
+            if (StarDictator > 480) {
                 StarCount = 2;
                 //generate binary seperation
-                ABDistance = Random.Range(1F, 1000F)/10;
+                ABDistance = Random.Range(1F, 10000F)/100;
                 //Eccentricity capacity increases with distance
                 float ABEccentricity = Random.Range(0f, (ABDistance*0.005f));
+
                 if (StarDictator > 960) {
                     StarCount = 3;
                     //reduce binary seperation
-                    ABDistance = Random.Range(1F, 1000F)/10;
+                    ABDistance = Mathf.Min(ABDistance/10, 0.01f);
                     //generate p-type seperation of body 3
                     float CDistance = Random.Range(ABDistance*30,3000F)/10;
                     float CEccentricity = Random.Range(0f, 0.5f);
-                    float CInclination = Random.Range(0f, 359f);
+                    
+                    StarOrbitArray[2] = SetOrbit(CDistance, CEccentricity, 360);
                 }
+
+                StarOrbitArray[0] = 
+                 "\n\t\tSMA = " + ABDistance/2
+                + "\n\t\tEccentricity = " + ABEccentricity
+                + "\n\t\tLongitude = " + 0
+                + "\n\t\tInclination = " + 0
+                + "\n\t\tPeriArgument = " + 0;
+                
+                StarOrbitArray[1] = 
+                 "\n\t\tSMA = " + ABDistance/2
+                + "\n\t\tEccentricity = " + ABEccentricity
+                + "\n\t\tLongitude = " + 180
+                + "\n\t\tInclination = " + 0
+                + "\n\t\tPeriArgument = " + 0;
             }
         } else {
             StarCount = 0;
             //rogue planet with no parent star
             //PlanetGen(0,10,0);
         }
-
         
-        
-        File.AppendAllText(SystemFileName, "Stars = " + StarCount + "\n");
-        //temp for debugging
-        int BodyCount = 1;
-        File.AppendAllText(SystemFileName, "Planets = " + BodyCount + "\n");
-
         //reset star ages to current time maximum
-        float[] StarLifespans = {13.5F, 13.5F, 13.5F, 13.5F};
+        StarLifespans = new float[] {13.5F, 13.5F, 13.5F, 13.5F};
+        //reset the body arrays
+        BodyDataArray = new List<string>();
+        BodyOrbitArray = new List<string>();
+
         //call the generation method for each star
         for (int i = 0; i < StarCount; i++)
         {
-            //adds to array for comparison and calls generation method
-           StarLifespans[i] = StarGen(i+1);
+            //calls generation method
+            StarLifespans[i] = StarGen(i+1);
         }
         //Gets a reasonable current age between universe age and too young to support planets for all stars
-        SystemAge = Random.Range(50, Mathf.Min(10000, StarLifespans.Min() * 900)) / 1000;
+        SystemAge = Random.Range(0.3f, StarLifespans.Min());
         Debug.Log("System Age" + SystemAge);
 
         
+        //call the secondary generation method for each star
+        for (int i = 0; i < StarCount; i++)
+        {
+            //calls generation method section 2
+            StarGen2(i+1);
+        }
 
-    
+
+
+        
+        //create the system file with hypothetical values
+        File.WriteAllText(SystemFileName,   "System Name = " + SeedInput + "\n" 
+                                        +   "Stars = " + StarCount + "\n" 
+                                        +   "Planets = " + BodyCount + "\n"
+                                        +   "SystemAge = " + SystemAge + "\n");
+
+        //print star data to file
+        for (int i = 0; i < StarCount; i++)
+        {
+            string StellarData = "\nSTAR_" + (i+1) + " {"
+            + StarDataArray[i] 
+            + StarDataAgedArray[i] 
+            + "\n\tORBIT {"
+            + StarOrbitArray[i]
+            + "\n\t}\n}\n";
+            File.AppendAllText(SystemFileName, StellarData);
+        }
+
+        //print body data to file
+        for (int i = 0; i < BodyCount; i++)
+        {
+            string PlanetaryData = "\nBODY_" + (i+1) + " {"
+            + BodyDataArray[i]  
+            + "\n"
+            + BodyOrbitArray[i]
+            + "\n\tCOMPOSITION {"
+            //+ BodyCompArray[i]
+            + "\n\t}"  
+            + "\n\tATMOSPHERE {"
+            //+ BodyAtmoArray[i]
+            + "\n\t}\n}\n";
+            File.AppendAllText(SystemFileName, PlanetaryData);
+        }
+
+        StartCoroutine(LoadSystemCoroutine());
     }
 
-    float StarGen(int StarNumber) 
+    float StarGen(int StarNumber)
     {
         //Generate Stellar mass using an animation curve
         float MassDictator = Random.Range(0.5f, 5f);
@@ -199,82 +324,150 @@ public class SystemGen : MonoBehaviour
         float Lifespan = (Diameter / Luminosity) * 10;
 
 
+        
+
+        string StarSuffix;
+        if(StarNumber == 1) {
+            StarSuffix="A";
+        } else if(StarNumber == 2) {
+            StarSuffix="B";
+        } else {
+            StarSuffix="C";
+        }
+        //prep star 
+        StarDataArray[StarNumber-1] = 
+              "\n\tName = " + SeedInput + "-" + StarSuffix
+            + "\n\tMass = " + Mass; 
+
+
+
         //generate number of planets
         int PlanetCount = (int)(Mathf.Max((Mathf.Pow(Mass,0.3f)*Random.Range(1,10)),1));
+        BodyCount += PlanetCount;
+
         //estimated distance of the heliopause
-        float SOIEdge = Mathf.Sqrt(Luminosity)*150;
+        float SOIEdge = Mathf.Sqrt(Luminosity)*75;
+        //set inner edge as closest bearable temperature limit
+        float SOIInner = Mathf.Pow((3f*Mass) / (9f*3.14f*5.51f),0.33f);
+        //get starting orbital standards
+        float InnerOrbit = Random.Range(SOIInner, SOIInner*5);
+        float PlanetarySpacing = Random.Range((0.06f)*SOIEdge, 10);
+        //get orbit placing values
+        float MeanEccentricity = 0.01f + Mathf.Pow(PlanetCount, -0.3f)/10;
+        float MaxInclination = (15f-PlanetCount)/2;
+
+        OrbitalPositions = new List<float>();
+        for (int i = 0; i < PlanetCount + Mathf.Round(PlanetCount/5f); i++)
+        {
+            //add the list of orbital limits to the arraylist
+            OrbitalPositions.Add(InnerOrbit + (PlanetarySpacing * Mathf.Pow(2, i)));
+        }
         
+        //scale orbits down if extending beyond the SOI edge
+        float OrbitScale = Mathf.Min(SOIEdge/OrbitalPositions[OrbitalPositions.Count-1], 1f); 
+
+        for (int i = 0; i < PlanetCount; i++)
+        {
+            PlanetGen(
+                ("STAR_" + StarNumber), 
+                (SeedInput + "-" + StarSuffix), 
+                i, 
+                MeanEccentricity, 
+                MaxInclination,
+                OrbitScale);
+        }
+
+        
+        //return value for comparison
         return Lifespan;
     }
 
-    void Star1Gen()
+    void StarGen2(int StarNumber) 
     {
 
-    } 
-    void Star2Gen()
-    {
-
-    } 
-    void Star3Gen()
-    {
-
-    } 
-    void StarGen2() {
-        
+      /*  
         
         //Calculate Hill Sphere in AU
-        //float BHillSphere = ABDistance*(1-ABEccentricity)*(BMass/3*AMass)^0.4
+        float BHillSphere = ABDistance*(1-ABEccentricity)*(BMass/3*AMass)^0.4
 
 
-        //revise stellar properties with respect to age
-        //Age Ajustment is % though lifespan
-       // float AgeAjustment = SystemAge / Lifespan;
-       // Diameter = Diameter + ((Diameter / 2) * AgeAjustment);
-        //Temperature in Kelvin Luminosity in Stellar Measures
-      //  Temperature = mathf.Pow(Diameter*1.25,0.54) * 5780;
-      //  Luminosity = mathf.Pow(AgeAdjDiameter, 2) * mathf.Pow((Temperature / 5780), 4);
+     
 
         //calculate mean eccentricity
-       // float MeanEccentricity = mathf.Max((PlanetCount^(-0.15)-0.65), 0.02);
+        float MeanEccentricity = mathf.Max((PlanetCount^(-0.15)-0.65), 0.02);
         //for each planet calculate the available mass
-      //  for (int x = 0; x < PlanetCount; x++) 
-      //  {
+        for (int x = 0; x < PlanetCount; x++) 
+        {
             //Pass parent body and orbital limitations
-           // PlanetGen(i+1, HillRadius, SOIEdge);
+            PlanetGen(i+1, HillRadius, SOIEdge);
 
-      //  }
-       // InitGenConfig = InitGenConfig + "STAR_" + StarNumber + "\n{\n\tObject = " + StarNumber + "\n\tStellar Mass = " + Mass + "\n\tChild Bodies = " + PlanetCount + "\n\tHelioPause Distance (AU) = " + SOIEdge + "\n\tRoche Limit (AU) = " + RocheLimit + "\n}\n";  
+        }
+        InitGenConfig = InitGenConfig + "STAR_" + StarNumber + "\n{\n\tObject = " + StarNumber + "\n\tStellar Mass = " + Mass + "\n\tChild Bodies = " + PlanetCount + "\n\tHelioPause Distance (AU) = " + SOIEdge + "\n\tRoche Limit (AU) = " + RocheLimit + "\n}\n";  
+    */
+    //Calculate the rotation rate and stellar activity now knowing the age
+
+
+         //temp values
+        float RotationRate = 10f;
+        float AxialTilt = 0.5f;
+        float ActivityIndex = 1f;
+
+        //prep star 
+        StarDataAgedArray[StarNumber-1] = 
+              "\n\tRotationRate = " + RotationRate
+            + "\n\tAxialTilt = " + AxialTilt
+            + "\n\tActivityIndex = " + ActivityIndex; 
     }
 
-    //float PlanetGen(int ParentBody, float PlanetSMA, int BodyNumber) {
-        //Generate Eccentricity
-
-        //Generate 
+    private void PlanetGen(string ParentBody, string ParentBodyName, int BodyNumber, float MeanEccentricity, float MaxInclination, float OrbitScale) {
         
-    //}
-    void SetOrbit(
-        float SMAInput,
-        float MeanEccentricity,
-        float MaxInclination,
-		out float SMA, 
-		out float Eccentricity,
-		out float LongitudeOfAscending,
-		out float Inclination,
-		out float PeriArgument 
-        )
+
+
+        float Mass = 1;
+        float RotationRate = 24;
+        float AxialTilt = 0;
+        
+        BodyDataArray.Add( 
+              "\n\tName = " + ParentBodyName + (BodyNumber+1)
+            + "\n\tMass = " + Mass 
+            + "\n\tParentBody = " + ParentBody 
+            + "\n\tRotationRate = " + RotationRate
+            + "\n\tAxialTilt = " + AxialTilt); 
+
+        //get a random orbital position
+        int i = Random.Range(0, OrbitalPositions.Count);
+        //call the orbit generation method and add to the saved print data
+        BodyOrbitArray.Add(SetOrbit(OrbitalPositions[i]*OrbitScale, MeanEccentricity, MaxInclination));
+        //remove SMA index from the array
+        OrbitalPositions.RemoveAt(i);
+    }
+
+    private string SetOrbit(float SMAInput, float MeanEccentricity, float MaxInclination)
     {
         //Jiggle the orbit a little within a permissable range
         SMAInput += Random.Range(-0.03f, 0.03f)*SMAInput;
-        SMA = SMAInput; 
+        float SMA = Mathf.Max(SMAInput, 0.00001f); 
         //Generate Eccentricity with a basis in the mean solar eccentricity
         //Mean is generated by planetcount and isn't a tally of the actual mean
-        Eccentricity = Random.Range(0.001f, MeanEccentricity*2);
+        float Eccentricity = Random.Range(0.001f, MeanEccentricity*2);
         //Generate the angle where the orbit goes from below the equator to above it
-        LongitudeOfAscending = Random.Range(0f, 359f);
+        float LongitudeOfAscending = Random.Range(0f, 359f);
         //Generate the inclination of the body in a given range
-        Inclination = Random.Range(-MaxInclination, MaxInclination);
+        float Inclination = Random.Range(0f, MaxInclination);
         //Generate how far in the inclined disk the body will set it's periapse
-        PeriArgument = Random.Range(0f, 359f);
+        float PeriArgument = Random.Range(0f, 359f);
+
+        string OrbitValues = "\tORBIT {"
+        + "\n\t\tSMA = " + SMA
+        + "\n\t\tEccentricity = " + Eccentricity
+        + "\n\t\tLongitude = " + LongitudeOfAscending
+        + "\n\t\tInclination = " + Inclination
+        + "\n\t\tPeriArgument = " + PeriArgument
+        + "\n\t\tColourR = " + Random.Range(0f, 255f)
+        + "\n\t\tColourG = " + Random.Range(0f, 255f)
+        + "\n\t\tColourB = " + Random.Range(0f, 255f) + "\n\t}";
+
+        return OrbitValues;
     }
 
 }

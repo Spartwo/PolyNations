@@ -6,12 +6,12 @@ using UnityEngine.SceneManagement;
 
 public class FloatingPointManager : MonoBehaviour
 {
-    public float Threshold = 500.0f; //0.5AU
+    [SerializeField] [Range(100f, 3000f)] private float Threshold; //0.5AU
     void LateUpdate()
     {
         Vector3 CameraPosition = this.transform.position;
 
-        //triggres if any postition of the camera in x,y,z extends beyond the threshold
+        //triggers if the distance between the camera and 0,0,0 is exceeds the threshold
         if (CameraPosition.magnitude > Threshold)
         {
 
@@ -20,7 +20,7 @@ public class FloatingPointManager : MonoBehaviour
                 //find every gameobject with no parent
                 foreach (GameObject g in SceneManager.GetSceneAt(z).GetRootGameObjects())
                 {
-                    //move n accordance with the camera position
+                    //move in accordance with the camera position
                     g.transform.position -= CameraPosition;
                 }
             }

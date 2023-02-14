@@ -18,7 +18,6 @@ public class LoadCellManager : MonoBehaviour
         SystemFileLocation = Application.streamingAssetsPath + "/Star_Systems/" + SystemName;
         //Get and set readable system name from file definition
         SystemName = SystemName.Substring(0, SystemName.Length - 7);
-        Debug.Log(SystemName);
         transform.GetChild(0).GetComponent<TMP_Text>().text = SystemName;
 
         //get file star count
@@ -30,9 +29,9 @@ public class LoadCellManager : MonoBehaviour
 
         //get file planet count 
         string PlanetsValue = File.ReadLines(SystemFileLocation).Skip(2).Take(1).First();
-        PlanetsValue = PlanetsValue.Substring(10);
+        PlanetsValue = PlanetsValue.Substring(9);
         //add to a string and cast to box
-        string Planets = "Planets | " + PlanetsValue;
+        string Planets = "Bodies | " + PlanetsValue;
         transform.GetChild(2).GetComponent<TMP_Text>().text = Planets;
     }
 

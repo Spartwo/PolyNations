@@ -16,16 +16,14 @@ public class CameraMovement : MonoBehaviour
     public Transform Parent;
     private int ParentIndex;
     private GameObject[] TargettableBodies;
-    public GameObject TimeKeeper;
+    [SerializeField] private GameObject TimeKeeper;
     // zoom variables
-    private float TargetSize;
+    [SerializeField] private float TargetSize;
     private float RotationGoal;
     private Vector3 PositionGoal;
     private float ZoomGoal;
     private float Zoom;
-    protected GameObject CamToMove;
-    //UI variables
-    public Text BodyNameUI;
+    [SerializeField] private GameObject CamToMove;
 
     void Update()
     {
@@ -43,21 +41,26 @@ public class CameraMovement : MonoBehaviour
         //smooths the movement of the camera
         Zoom = Mathf.Lerp(Zoom, ZoomGoal, SmoothSpeed);
         CamToMove.transform.localPosition = new Vector3(0, 0, Zoom);
-
     }
 
     public void UpdateBodyList()
     {      
         //list all bodies with the focusable tag
         TargettableBodies = GameObject.FindGameObjectsWithTag("Focus_Object");
-        //autofocus on the first object to prevent bugs
-        Parent = TargettableBodies[0].GetComponent<Transform>();
+        //set the parent object to first index in targettable objects
+        Parent = TargettableBodies[0].transform;
+        ParentIndex = 0;
     }
-
 
     void CamTrack()
     {
-        //will implement click to change targets soon
+        //Reset the list of cycle objects if voided
+        if(!Parent) {
+            Debug.Log("Nullskull");
+            UpdateBodyList();
+        } else {
+           transform.SetParent(Parent, false);
+        }
 
         //Prevents the camera from drifting
         PositionGoal = Parent.position;
@@ -170,7 +173,7 @@ public class CameraMovement : MonoBehaviour
             if (Time.realtimeSinceStartup - LastClickTime <= DoubleClickTime)
             {
                 //run the click based reparenting script
-                this.DoubleClickReparent();
+                DoubleClickReparent();
             } 
             //reset the click timer for the 0.3
             LastClickTime = Time.realtimeSinceStartup;
@@ -185,7 +188,7 @@ public class CameraMovement : MonoBehaviour
         Ray ray = Camera.main.ScreenPointToRay( Input.mousePosition );
         RaycastHit hit;
          
-        if( Physics.Raycast( ray, out hit, 100000 ) )
+        if( Physics.Raycast( ray, out hit ) )
         {
             //if the raycast intercepts the collider of a planet or star
             if (hit.collider.gameObject.tag == "Focus_Object")
